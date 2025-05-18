@@ -1,0 +1,79 @@
+
+
+https://www.itsolutionstuff.com/post/laravel-9-multi-auth-create-multiple-authentication-in-laravelexample.html
+
+composer require yajra/laravel-datatables-oracle:"^10.0"
+
+
+//// helpder create
+
+https://dev.to/kingsconsult/how-to-create-laravel-8-helpers-function-global-function-d8n
+Step 1: create a helper file
+Step 2: Write the helper function
+
+Step 3: Include it in our composer.json
+"app/helpers.php"
+Step 4: Regenerate the list of all classes in the app
+composer dump-autoload
+    <div>
+        @php
+            $email = user_email();
+        @endphp
+        {{ $email }}
+    </div>
+
+
+
+
+php artisan make:seeder CreateUsersSeeder
+php artisan db:seed --class=CreateUsersSeeder
+
+Vite manifest not found at: /Applications/MAMP/htdocs/navana-recruitment/public/build/manifest.json
+ soln: npm run build
+
+
+composer require laravel/ui 
+php artisan ui bootstrap --auth 
+npm install
+npm run dev
+
+app/Http/middleware/UserAccess.php
+    artisan make:middleware UserAccess
+
+app/Http/Kernel.php
+protected $routeMiddleware = [
+    'user-access' => \App\Http\Middleware\UserAccess::class,
+];
+
+
+
+Step 6: Create Routes
+
+routes/web.php
+
+/*------------------------------------------
+--------------------------------------------
+All Normal Users Routes List
+--------------------------------------------
+--------------------------------------------*/
+Route::middleware(['auth', 'user-access:user'])->group(function () {
+    Route::get('/home', [HomeController::class, 'index'])->name('home');
+});
+
+/*------------------------------------------
+--------------------------------------------
+All Admin Routes List
+--------------------------------------------
+--------------------------------------------*/
+Route::middleware(['auth', 'user-access:admin'])->group(function () {
+    Route::get('/admin/home', [HomeController::class, 'adminHome'])->name('admin.home');
+});
+  
+/*------------------------------------------
+--------------------------------------------
+All Admin Routes List
+--------------------------------------------
+--------------------------------------------*/
+Route::middleware(['auth', 'user-access:manager'])->group(function () {
+    Route::get('/manager/home', [HomeController::class, 'managerHome'])->name('manager.home');
+});
