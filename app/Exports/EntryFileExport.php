@@ -40,11 +40,11 @@ class EntryFileExport implements FromCollection, WithTitle, WithHeadings, WithMa
 
     protected function applyCriteria($criteria, $query)
     {        
+        
         if (isset($criteria['from_date'], $criteria['to_date'])) {
-            $query->whereBetween('est_entry_files.created_at', [
-                $criteria['from_date'] . ' 00:00:00',
-                $criteria['to_date'] . ' 23:59:59'
-            ]);
+            $fromDate = $criteria['from_date'] . ' 00:00:00';
+            $toDate = $criteria['to_date'] . ' 23:59:59';
+            $query->whereBetween('est_entry_files.created_at', [$fromDate, $toDate]);
         }
 
         if (!empty($criteria['mouza']) && $criteria['mouza'] !== 'all') {
@@ -56,12 +56,15 @@ class EntryFileExport implements FromCollection, WithTitle, WithHeadings, WithMa
         }
         
         if (!empty($criteria['dag']) && $criteria['dag'] !== 'all') {
-            $query->where('est_entry_files.dag_id', $criteria['dag']);
+            $query->whereHas('entryDagData', function($q) use ($criteria) {
+                $q->where('est_entry_file_dags.dag_id', $criteria['dag']);
+            });
         }
         
         if (!empty($criteria['project']) && $criteria['project'] !== 'all') {
             $query->where('est_entry_files.project_id', $criteria['project']);
         }
+
     }
 
     public function getDagData($id)
@@ -74,36 +77,49 @@ class EntryFileExport implements FromCollection, WithTitle, WithHeadings, WithMa
         $user = Auth::user();
         $getTeamMems = teamMembers();
 
-        $query = EstEntryFile::query()
-            ->with([
-                'entryDagData' => function($q) {
-                    // Remove the join here since it's already defined in the relationship
-                    $q->select(
-                        'est_entry_file_dags.id',
-                        'est_entry_file_dags.entfile_id',
-                        'est_entry_file_dags.dag_id',
-                        'est_entry_file_dags.purchase_land'
-                    );
-                },
-                'mouza:id,name',
-                'entryDeed:id,entfile_id,deed_no',
-                'landownersData:id,name',
-                'buyerName:data_keys,data_values',
-                'userInfo:id,name'
-            ])
-            ->leftJoin('users', 'users.id', '=', 'est_entry_files.user_id')
-            ->select([
-                'est_entry_files.id',
-                'est_entry_files.file_no',
-                'est_entry_files.mouza_id',
-                'est_entry_files.khatype_id',
-                'est_entry_files.t_pur_rs',
-                'est_entry_files.m_jote',
-                'est_entry_files.created_at',
-                'est_entry_files.landowners',
-                'est_entry_files.buyer_id',
-                'users.name as username'
-            ]);
+        // $query = EstEntryFile::query()
+        //     ->with([
+        //         'entryDagData' => function($q) {
+        //             // Remove the join here since it's already defined in the relationship
+        //             $q->select(
+        //                 'est_entry_file_dags.id',
+        //                 'est_entry_file_dags.entfile_id',
+        //                 'est_entry_file_dags.dag_id',
+        //                 'est_entry_file_dags.purchase_land'
+        //             );
+        //         },
+        //         'mouza:id,name',
+        //         'entryDeed:id,entfile_id,deed_no',
+        //         'landownersData:id,name',
+        //         'buyerName:data_keys,data_values',
+        //         'userInfo:id,name'
+        //     ])
+        //     ->leftJoin('users', 'users.id', '=', 'est_entry_files.user_id')
+        //     ->select([
+        //         'est_entry_files.id',
+        //         'est_entry_files.file_no',
+        //         'est_entry_files.mouza_id',
+        //         'est_entry_files.khatype_id',
+        //         'est_entry_files.t_pur_rs',
+        //         'est_entry_files.m_jote',
+        //         'est_entry_files.created_at',
+        //         'est_entry_files.landowners',
+        //         'est_entry_files.buyer_id',
+        //         'users.name as username'
+        //     ]);
+
+        $query = EstEntryFile::with(['entryDagData'])
+                ->leftJoin('users', 'users.id', '=', 'est_entry_files.user_id')
+                ->leftJoin('estate_projects', 'estate_projects.id', '=', 'est_entry_files.project_id')
+                ->select(
+                    'est_entry_files.*', 
+                    'estate_projects.name as project_name', 
+                    'estate_projects.project_type as project_type', 
+                    'estate_projects.land_type as land_type', 
+                    'estate_projects.address as project_address', 
+                    'users.name as username'
+                )
+                ->distinct();
 
         if ($user->type !== 'admin') {
             if (!empty($getTeamMems) && count($getTeamMems) > 1) {
@@ -164,6 +180,7 @@ class EntryFileExport implements FromCollection, WithTitle, WithHeadings, WithMa
             return [
                 'sl' => $item->id,
                 'file_no' => $item->file_no ?? '',
+                'project_name' => $item->project_name,
                 'deed_no' => $entryDeed,
                 'mouza' => $item->mouza->name ?? '',
                 'vendee' => !empty($item->buyerName->data_values)? $item->buyerName->data_values : '',
@@ -189,50 +206,12 @@ class EntryFileExport implements FromCollection, WithTitle, WithHeadings, WithMa
     public function headings(): array
     {
         return [
-            // 'SL',
-            // 'File No',
-            // 'Deed No',
-            // 'Mouza',
-            // 'Vendee',
-            // 'Vendor',
-            // 'SA Khatian',
-            // 'RS Khatian',
-            // 'BS Khatian',
-            // 'SA Dag',
-            // 'RS Dag',
-            // 'BS Dag',
-            // 'Dag Land',
-            // 'Purchase Land',
-            // 'Total Purchase Land',
-            // 'Total Purchase RS',
-            // 'M Jote',
-            // 'Mzoth No',
-            // 'Created By'
         ];
     }
 
     public function map($row): array
     {
         return [
-            // (string) ($row['sl'] ?? ''),
-            // (string) ($row['file_no'] ?? ''),
-            // (string) ($row['deed_no'] ?? ''),
-            // (string) ($row['mouza'] ?? ''),
-            // (string) ($row['vendee'] ?? ''),
-            // (string) ($row['vendor'] ?? ''),
-            // (string) ($row['sa_khatian'] ?? ''),
-            // (string) ($row['rs_khatian'] ?? ''),
-            // (string) ($row['bs_khatian'] ?? ''),
-            // (string) ($row['sa_dag'] ?? ''),
-            // (string) ($row['rs_dag'] ?? ''),
-            // (string) ($row['bs_dag'] ?? ''),
-            // (string) ($row['dag_land'] ?? ''),
-            // (string) ($row['purchase_land'] ?? ''),
-            // (string) ($row['total_purchase_land'] ?? ''),
-            // (string) ($row['total_purchase_rs'] ?? ''),
-            // (string) ($row['m_jote'] ?? ''),
-            // (string) ($row['mzoth_no'] ?? ''),
-            // (string) ($row['created_by'] ?? ''),
         ];
     }
 
@@ -254,26 +233,46 @@ class EntryFileExport implements FromCollection, WithTitle, WithHeadings, WithMa
                 
                 $sheet = $event->sheet->getDelegate();
 
+                // <th>#ID</th>
+                // <th>File.No</th>
+                // <th>Project Name</th>
+                // <th>Deed.NO</th>
+                // <th>Mouza</th>
+                // <th>Vendor</th>
+                // <th>Vandee</th>
+                // <th>SA.Khatian</th>
+                // <th>RS.Khatian</th>
+                // <th>BS.Khatian</th>
+                // <th>SA.DAG</th>
+                // <th>RS.DAG</th>
+                // <th>BS.DAG</th>
+                // <th>DAG.LAND</th>
+                // <th>PUR.LAND</th>
+                // <th>T.PUR.RS</th>
+                // <th>M.JOTE</th>
+                // <th>Created.By</th>
+
                 $headings = [
                     'A' => 'SL',
                     'B' => 'File No',
-                    'C' => 'Deed No',
-                    'D' => 'Mouza',
-                    'E' => 'Vendee',
-                    'F' => 'Vendor',
-                    'G' => 'SA Khatian',
-                    'H' => 'RS Khatian',
-                    'I' => 'BS Khatian',
-                    'J' => 'SA Dag',
-                    'K' => 'RS Dag',
-                    'L' => 'BS Dag',
-                    'M' => 'Dag Land',
-                    'N' => 'Purchase Land',
-                    'O' => 'Total Purchase Land',
-                    'P' => 'Total Purchase RS',
-                    'Q' => 'M Jote',
-                    'R' => 'Mzoth No',
-                    'S' => 'Created By'
+                    'C' => 'Project Name',
+                    'D' => 'Deed No',
+                    'E' => 'Mouza',
+                    'F' => 'Vendee',
+                    'G' => 'Vendor',
+                    'H' => 'SA Khatian',
+                    'I' => 'RS Khatian',
+                    'J' => 'BS Khatian',
+                    'K' => 'SA Dag',
+                    'L' => 'RS Dag',
+                    'M' => 'BS Dag',
+                    'N' => 'Dag Land',
+                    'O' => 'Purchase Land',
+                    'P' => 'Total Purchase Land',
+                    'Q' => 'Total Purchase RS',
+                    'R' => 'M Jote',
+                    'S' => 'Mzoth No',
+                    'T' => 'Created By'
                 ];
 
                 $sheet->setCellValue('A1', '{{COMPANY_LOGO}}');
@@ -297,7 +296,7 @@ class EntryFileExport implements FromCollection, WithTitle, WithHeadings, WithMa
                 $logoRowHeight = $imageHeight * 0.75;
                 $sheet->getRowDimension(1)->setRowHeight($logoRowHeight);
 
-                $sheet->getStyle('A1:S1')->applyFromArray([
+                $sheet->getStyle('A1:T1')->applyFromArray([
                     'font' => [
                         'bold' => true,
                         'size' => 14,
@@ -312,9 +311,9 @@ class EntryFileExport implements FromCollection, WithTitle, WithHeadings, WithMa
                 ]);
 
                 $sheet->setCellValue('A1', $this->companyName);
-                $sheet->mergeCells('A1:S1');
+                $sheet->mergeCells('A1:T1');
 
-                $sheet->getStyle('A1:S1')->getAlignment()->setVertical(Alignment::VERTICAL_CENTER);
+                $sheet->getStyle('A1:T1')->getAlignment()->setVertical(Alignment::VERTICAL_CENTER);
 
                 $title = 'Ticket Report Based on Status' . 
                     (
@@ -324,7 +323,7 @@ class EntryFileExport implements FromCollection, WithTitle, WithHeadings, WithMa
                         : '')
                     );
                 $sheet->setCellValue('A2', $title);
-                $sheet->getStyle('A2:S2')->applyFromArray([
+                $sheet->getStyle('A2:T2')->applyFromArray([
                     'font' => [
                         'bold' => true,
                         'size' => 14,
@@ -338,13 +337,13 @@ class EntryFileExport implements FromCollection, WithTitle, WithHeadings, WithMa
                     ],
                 ]);
 
-                $sheet->mergeCells('A2:S2');
+                $sheet->mergeCells('A2:T2');
 
                 $sheet->setCellValue('A3', 'Designed & Developed by IC&T Department | © 2024 NAVANA All Rights Reserved');
 
-                $sheet->mergeCells('A3:S3');
+                $sheet->mergeCells('A3:T3');
 
-                $sheet->getStyle('A3:S3')->applyFromArray([
+                $sheet->getStyle('A3:T3')->applyFromArray([
                     'font' => [
                         'bold' => true,
                         'size' => 8,
@@ -365,7 +364,7 @@ class EntryFileExport implements FromCollection, WithTitle, WithHeadings, WithMa
                     $sheet->setCellValue($col . '4', $heading);
                 }
 
-                $sheet->getStyle('A4:S4')->applyFromArray([
+                $sheet->getStyle('A4:T4')->applyFromArray([
                     'font' => [
                         'bold' => true,
                         'size' => 12,
@@ -384,7 +383,7 @@ class EntryFileExport implements FromCollection, WithTitle, WithHeadings, WithMa
                     ]
                 ]);
 
-                foreach (range('A', 'S') as $col) {
+                foreach (range('A', 'T') as $col) {
                     $sheet->getColumnDimension($col)->setWidth(12);
                     $sheet->getStyle($col . '1:' . $col . $sheet->getHighestRow())->getAlignment()->setWrapText(true);
                 }
@@ -405,23 +404,24 @@ class EntryFileExport implements FromCollection, WithTitle, WithHeadings, WithMa
 
                     $sheet->setCellValue('A'. $row, $data['sl'] ?? '');
                     $sheet->setCellValue('B'. $row, $data['file_no'] ?? '');
-                    $sheet->setCellValue('C'. $row, $data['deed_no'] ?? '');
-                    $sheet->setCellValue('D'. $row, $data['mouza'] ?? '');
-                    $sheet->setCellValue('E'. $row, $data['vendee'] ?? '');
-                    $sheet->setCellValue('F'. $row, $data['vendor'] ?? '');
-                    $sheet->setCellValue('G'. $row, $data['sa_khatian'] ?? '');
-                    $sheet->setCellValue('H'. $row, $data['rs_khatian'] ?? '');
-                    $sheet->setCellValue('I'. $row, $data['bs_khatian'] ?? '');
-                    $sheet->setCellValue('J'. $row, $data['sa_dag'] ?? '');
-                    $sheet->setCellValue('K'. $row, $data['rs_dag'] ?? '');
-                    $sheet->setCellValue('L'. $row, $data['bs_dag'] ?? '');
-                    $sheet->setCellValue('M'. $row, $data['dag_land'] ?? '');
-                    $sheet->setCellValue('N'. $row, $data['purchase_land'] ?? '');
-                    $sheet->setCellValue('O'. $row, $data['total_purchase_land'] ?? '');
-                    $sheet->setCellValue('P'. $row, $data['total_purchase_rs'] ?? '');
-                    $sheet->setCellValue('Q'. $row, $data['m_jote'] ?? '');
-                    $sheet->setCellValue('R'. $row, $data['mzoth_no'] ?? '');
-                    $sheet->setCellValue('S'. $row, $data['created_by'] ?? '');
+                    $sheet->setCellValue('C'. $row, $data['project_name'] ?? '');
+                    $sheet->setCellValue('D'. $row, $data['deed_no'] ?? '');
+                    $sheet->setCellValue('E'. $row, $data['mouza'] ?? '');
+                    $sheet->setCellValue('F'. $row, $data['vendee'] ?? '');
+                    $sheet->setCellValue('G'. $row, $data['vendor'] ?? '');
+                    $sheet->setCellValue('H'. $row, $data['sa_khatian'] ?? '');
+                    $sheet->setCellValue('I'. $row, $data['rs_khatian'] ?? '');
+                    $sheet->setCellValue('J'. $row, $data['bs_khatian'] ?? '');
+                    $sheet->setCellValue('K'. $row, $data['sa_dag'] ?? '');
+                    $sheet->setCellValue('L'. $row, $data['rs_dag'] ?? '');
+                    $sheet->setCellValue('M'. $row, $data['bs_dag'] ?? '');
+                    $sheet->setCellValue('N'. $row, $data['dag_land'] ?? '');
+                    $sheet->setCellValue('O'. $row, $data['purchase_land'] ?? '');
+                    $sheet->setCellValue('P'. $row, $data['total_purchase_land'] ?? '');
+                    $sheet->setCellValue('Q'. $row, $data['total_purchase_rs'] ?? '');
+                    $sheet->setCellValue('R'. $row, $data['m_jote'] ?? '');
+                    $sheet->setCellValue('S'. $row, $data['mzoth_no'] ?? '');
+                    $sheet->setCellValue('T'. $row, $data['created_by'] ?? '');
 
                     $sl++;
                     $idx++;
@@ -440,7 +440,7 @@ class EntryFileExport implements FromCollection, WithTitle, WithHeadings, WithMa
                     ]
                 ];
 
-                $sheet->getStyle('A4:S' . $sheet->getHighestRow())->applyFromArray($style);
+                $sheet->getStyle('A4:T' . $sheet->getHighestRow())->applyFromArray($style);
 
                 $sheet->getPageSetup()->setOrientation(\PhpOffice\PhpSpreadsheet\Worksheet\PageSetup::ORIENTATION_LANDSCAPE);
                 $sheet->getPageSetup()->setPaperSize(\PhpOffice\PhpSpreadsheet\Worksheet\PageSetup::PAPERSIZE_A4);

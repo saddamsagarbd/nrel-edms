@@ -87,8 +87,7 @@ class FileController extends Controller
 
     public function getDagInfoByKhatianAndMouza(Request $request) {
 
-
-        // DB::enableQueryLog();
+        // dd($request->all());
 
         $query = DB::table('khatian_dag_infos')->select('id', 'dag_no', 'khatian_no');
 

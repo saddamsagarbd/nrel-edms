@@ -51,6 +51,7 @@ $(document).on('hide.bs.modal', '.modal', function (e) {
 // $("#resetCriteria").hide();
 
 $(document).on("click", "#resetCriteria", function(){
+    $("#searchCriteria").trigger("reset");
     location.reload();
 });
 

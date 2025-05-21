@@ -41,6 +41,14 @@ class EstEntryFile extends Model
                         ->leftJoin('khatian_dag_infos','khatian_dag_infos.id', 'est_entry_file_dags.dag_id')
                         ->select('khatian_dag_infos.dag_no','khatian_dag_infos.khatian_no','khatian_dag_infos.id', 'khatian_dag_infos.csdag_id','khatian_dag_infos.sadag_id','khatian_dag_infos.rsdag_id','khatian_dag_infos.khatian_land','est_entry_file_dags.*' );
     }
+
+    // public function entryDagData()
+    // {
+    //     return $this->hasMany(EstEntryFileDag::class, 'entfile_id', 'id')
+    //         ->join('khatian_dag_infos', 'khatian_dag_infos.id', '=', 'est_entry_file_dags.dag_id')
+    //         ->select('khatian_dag_infos.dag_no','khatian_dag_infos.khatian_no','khatian_dag_infos.id', 'khatian_dag_infos.csdag_id','khatian_dag_infos.sadag_id','khatian_dag_infos.rsdag_id','khatian_dag_infos.khatian_land','est_entry_file_dags.*' );
+    // }
+
     // public function entryDeed1()
     // {
     //     return $this->hasMany(EstEntryFileDeed::class, 'entfile_id', 'id')
@@ -103,5 +111,14 @@ class EstEntryFile extends Model
     {
         return $this->belongsToMany(EstateVendor::class, 'est_entry_files', 'landowners', 'id');
     }
+
+    public function user() {
+        return $this->belongsTo(User::class);
+    }
+
+    public function khatiyanDagInfo() {
+        return $this->belongsTo(KhatianDagInfo::class, 'mouza_id', 'mouza_id');
+    }
+
 
 }

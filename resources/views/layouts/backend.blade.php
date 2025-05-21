@@ -31,6 +31,7 @@
     <link rel="stylesheet" href="{{asset('backend/assets/css/custom.css')}}">
     <!-- End layout styles -->
     <link rel="shortcut icon" href="{{asset('backend/assets/images/favicon.png')}}" />
+    <link rel="stylesheet" href="{{asset('backend/assets/vendors/bootstrap-datepicker/bootstrap-datepicker.min.css')}}">
     
 </head>
 
@@ -56,7 +57,6 @@
             
             @include('partials.sidenav')
         </nav>
- 
         <!-- partial -->
 
         <div class="page-wrapper">
@@ -212,7 +212,9 @@
     <!-- endinject -->
 
     <!-- Custom js for this page -->
-    <script src="{{asset('backend/assets/js/dashboard-light.js')}}"></script>
+    <!-- <script src="{{asset('backend/assets/js/dashboard-light.js')}}"></script> -->
+    <script src="{{asset('backend/assets/vendors/bootstrap-datepicker/bootstrap-datepicker.min.js')}}"></script>
+    <script src="{{asset('backend/assets/js/datepicker.js')}}"></script>
     <script src="{{asset('backend/assets/js/custom.js')}}"></script>
     <!-- end custom js for this page -->
     

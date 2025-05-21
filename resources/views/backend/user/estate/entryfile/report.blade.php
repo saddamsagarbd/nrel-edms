@@ -5,7 +5,7 @@
 <link rel="stylesheet" href="{{asset('backend/assets/vendors/select2/select2.min.css')}}">
 <link rel="stylesheet" href="{{asset('backend/assets/vendors/datatables.net-bs5/dataTables.bootstrap5.css')}}">
 <link rel="stylesheet" href="{{asset('backend/assets/vendors/datatables.net/Buttons-2.2.3/css/buttons.bootstrap.min.css')}}">
-<link rel="stylesheet" href="{{asset('backend/assets/vendors/bootstrap-datepicker/bootstrap-datepicker.min.css')}}">
+<!-- <link rel="stylesheet" href="{{asset('backend/assets/vendors/bootstrap-datepicker/bootstrap-datepicker.min.css')}}"> -->
 
 <style>
     .table th,
@@ -72,6 +72,7 @@
                                 <tr>
                                     <th>#ID</th>
                                     <th>File.No</th>
+                                    <th>Project Name</th>
                                     <th>Deed.NO</th>
                                     <th>Mouza</th>
                                     <th>Vendor</th>
@@ -114,8 +115,9 @@
 <script src="{{asset('backend/assets/js/select2.js')}}"></script>
 
 <script src="{{asset('backend/assets/vendors/moment/moment.min.js')}}"></script>
-<script src="{{asset('backend/assets/vendors/bootstrap-datepicker/bootstrap-datepicker.min.js')}}"></script>
-<script src="{{asset('backend/assets/js/datepicker.js')}}"></script>
+<!-- <script src="{{asset('backend/assets/vendors/bootstrap-datepicker/bootstrap-datepicker.min.js')}}"></script> -->
+<!-- <script src="{{asset('backend/assets/js/datepicker.js')}}"></script> -->
+<script src="{{asset('backend/assets/js/custom.js')}}"></script>
 
 <script>
 
@@ -149,9 +151,13 @@
             toastr.success(msg);
         }
 
-        $('.liveSelect2').select2({
-            dropdownParent: $('#entryFileModal')
-        });
+        // $('.liveSelect2').select2({
+        //     dropdownParent: $('#entryFileModal')
+        // });
+
+        $(document).find(".liveSelect2").select2();
+        $(document).find("#filter_mouza").select2();
+        $(document).find("#dag_info").select2();
 
         // store data function
 
@@ -210,6 +216,7 @@
                 columns: [
                     {data: 'id', name: 'id'},
                     {data: 'file_no', name: 'file_no'},
+                    {data: 'project', name: 'project'},
                     {data: 'deed_no', name: 'deed_no'},
                     {data: 'mouza_name', name: 'mouza_name'},
                     {data: 'landowner', name: 'landowner'}, // vendor
