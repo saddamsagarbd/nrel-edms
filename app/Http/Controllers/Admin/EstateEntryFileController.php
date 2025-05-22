@@ -928,8 +928,13 @@ class EstateEntryFileController extends Controller
                 })
                 ->addColumn('bs_dag', function ($data) {
                     if ($data->khatype_id != 4) return '...';
-                    return $data->entryDagData->map(fn ($dag) => $dag->dag_no)->implode(', <br>');
+                    return $data->entryDagData->map(function ($dag) {
+                        return isset($dag->dag_no) && $dag->dag_no !== null && $dag->dag_no != ""
+                                ? (string) $dag->dag_no
+                                : '...';
+                    })->implode(', <br>');
                 })
+
                 ->addColumn('dag_land', function ($data) {
                     return $data->entryDagData->map(fn ($dag) =>
                         optional($this->getDagData($dag->dag_id))->dag_land

@@ -196,7 +196,7 @@ class EntryFileExport implements FromCollection, WithTitle, WithHeadings, WithMa
                 'total_purchase_land' => $entryDagData->sum('pur_land'),
                 'total_purchase_rs' => $item->t_pur_rs ?? '',
                 'm_jote' => $item->m_jote ?? '',
-                'mzoth_no' => $entryMutation,
+                'mjoth_no' => $entryMutation,
                 'created_at' => date('d-m-Y', strtotime($item->created_at)),
                 'created_by' => $item->username ?? '',
             ];
@@ -271,7 +271,7 @@ class EntryFileExport implements FromCollection, WithTitle, WithHeadings, WithMa
                     'P' => 'Total Purchase Land',
                     'Q' => 'Total Purchase RS',
                     'R' => 'M Jote',
-                    'S' => 'Mzoth No',
+                    'S' => 'Mjoth No',
                     'T' => 'Created By'
                 ];
 
@@ -420,7 +420,7 @@ class EntryFileExport implements FromCollection, WithTitle, WithHeadings, WithMa
                     $sheet->setCellValue('P'. $row, $data['total_purchase_land'] ?? '');
                     $sheet->setCellValue('Q'. $row, $data['total_purchase_rs'] ?? '');
                     $sheet->setCellValue('R'. $row, $data['m_jote'] ?? '');
-                    $sheet->setCellValue('S'. $row, $data['mzoth_no'] ?? '');
+                    $sheet->setCellValue('S'. $row, $data['mjoth_no'] ?? '');
                     $sheet->setCellValue('T'. $row, $data['created_by'] ?? '');
 
                     $sl++;

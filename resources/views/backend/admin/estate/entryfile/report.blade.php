@@ -191,11 +191,16 @@
                 "autoWidth": false,
                 columnDefs: [
                     { "width": "15%", "targets": [4, 5] },
+
                     {
                         "targets": 12,
+                        // "render": function (data, type, full) {
+                        //             return parseFloat(data).toFixed(2);
+                        //         }
                         "render": function (data, type, full) {
-                                    return parseFloat(data).toFixed(2);
-                                }
+                            var num = parseFloat(data);
+                            return isNaN(num) ? data : num.toFixed(2);
+                        }
                     }
                 ],
                 
