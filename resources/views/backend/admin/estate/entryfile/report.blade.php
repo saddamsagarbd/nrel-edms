@@ -88,7 +88,7 @@
                                     <th>T.PUR.RS</th>
                                     <th>M.JOTE</th>
                                     <th>Created.By</th>
-                                    <th>Actions</th>
+                                    <!-- <th>Actions</th> -->
                                 </tr>
                             </thead>
                             <tbody>
@@ -241,7 +241,7 @@
                     {data: 'total_pur_land', name: 'total_pur_land'},
                     {data: 'mzoth_no', name: 'mzoth_no'},
                     {data: 'username', name: 'username'},
-                    {data: 'action', name: 'action', orderable: false, searchable: false},                    
+                    // {data: 'action', name: 'action', orderable: false, searchable: false},                    
                 ]
             });
 

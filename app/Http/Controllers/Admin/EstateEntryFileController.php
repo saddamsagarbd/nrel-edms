@@ -944,10 +944,10 @@ class EstateEntryFileController extends Controller
                 ->addColumn('total_pur_land', fn ($data) => $data->entryDagData->sum('purchase_land'))
                 ->addColumn('deed_no', fn ($data) => $data->entryDeed->pluck('deed_no')->implode(', '))
                 ->addColumn('mzoth_no', fn ($data) => $data->entryMutation->pluck('zoth_no')->implode(', '))
-                ->addColumn('action', function ($data) {
-                    return '<a class="btn btn-light btn-sm btn-sm-custom ms-1" href="' . route('admin.entryFile.show', $data->id) . '">View</a>';
-                })
-                ->rawColumns(['sa_khatian','rs_khatian','sa_dag','rs_dag', 'bs_khatian', 'bs_dag', 'dag_land','pur_land','buyer_name', 'mouza_name','landowner','action'])
+                // ->addColumn('action', function ($data) {
+                //     return '<a class="btn btn-light btn-sm btn-sm-custom ms-1" href="' . route('admin.entryFile.show', $data->id) . '">View</a>';
+                // })
+                ->rawColumns(['sa_khatian','rs_khatian','sa_dag','rs_dag', 'bs_khatian', 'bs_dag', 'dag_land','pur_land','buyer_name', 'mouza_name','landowner'])
                 ->make(true);
         }
 
