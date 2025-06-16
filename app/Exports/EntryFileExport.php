@@ -233,25 +233,6 @@ class EntryFileExport implements FromCollection, WithTitle, WithHeadings, WithMa
                 
                 $sheet = $event->sheet->getDelegate();
 
-                // <th>#ID</th>
-                // <th>File.No</th>
-                // <th>Project Name</th>
-                // <th>Deed.NO</th>
-                // <th>Mouza</th>
-                // <th>Vendor</th>
-                // <th>Vandee</th>
-                // <th>SA.Khatian</th>
-                // <th>RS.Khatian</th>
-                // <th>BS.Khatian</th>
-                // <th>SA.DAG</th>
-                // <th>RS.DAG</th>
-                // <th>BS.DAG</th>
-                // <th>DAG.LAND</th>
-                // <th>PUR.LAND</th>
-                // <th>T.PUR.RS</th>
-                // <th>M.JOTE</th>
-                // <th>Created.By</th>
-
                 $headings = [
                     'A' => 'SL',
                     'B' => 'File No',
@@ -315,7 +296,7 @@ class EntryFileExport implements FromCollection, WithTitle, WithHeadings, WithMa
 
                 $sheet->getStyle('A1:T1')->getAlignment()->setVertical(Alignment::VERTICAL_CENTER);
 
-                $title = 'Ticket Report Based on Status' . 
+                $title = 'EDMS File Registration Report' . 
                     (
                         (isset($this->criteria["from_date"], $this->criteria["to_date"]) 
                         ? ' from ' . date('d-m-Y', strtotime($this->criteria["from_date"])) . 
