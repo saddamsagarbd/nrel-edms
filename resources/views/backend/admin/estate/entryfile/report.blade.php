@@ -71,22 +71,23 @@
                             <thead>
                                 <tr>
                                     <th>#ID</th>
+                                    <th>Deed Date</th>
                                     <th>File.No</th>
-                                    <th>Project Name</th>
+                                    <th>Prj. Name</th>
                                     <th>Deed.NO</th>
                                     <th>Mouza</th>
                                     <th>Vendor</th>
                                     <th>Vandee</th>
-                                    <th>SA.Khatian</th>
-                                    <th>RS.Khatian</th>
-                                    <th>BS.Khatian</th>
-                                    <th>SA.DAG</th>
-                                    <th>RS.DAG</th>
-                                    <th>BS.DAG</th>
+                                    <th>SA.kh</th>
+                                    <th>RS.kh</th>
+                                    <th>BS.kh</th>
+                                    <th>SA.dg</th>
+                                    <th>RS.dg</th>
+                                    <th>BS.dg</th>
                                     <th>DAG.LAND</th>
                                     <th>PUR.LAND</th>
                                     <th>T.PUR.RS</th>
-                                    <th>M.JOTE</th>
+                                    <th>M.LAND</th>
                                     <th>Created.By</th>
                                     <!-- <th>Actions</th> -->
                                 </tr>
@@ -190,10 +191,10 @@
                 "order": [[ 0, "DESC" ]],
                 "autoWidth": false,
                 columnDefs: [
-                    { "width": "15%", "targets": [4, 5] },
+                    { "width": "8%", "targets": [2, 4, 5] },
 
                     {
-                        "targets": 12,
+                        "targets": 14,
                         // "render": function (data, type, full) {
                         //             return parseFloat(data).toFixed(2);
                         //         }
@@ -224,6 +225,7 @@
                 },
                 columns: [
                     {data: 'id', name: 'id'},
+                    {data: 'deed_date', name: 'deed_date'},
                     {data: 'file_no', name: 'file_no'},
                     {data: 'project', name: 'project'},
                     {data: 'deed_no', name: 'deed_no'},
@@ -239,7 +241,7 @@
                     {data: 'dag_land', name: 'dag_land'},
                     {data: 'pur_land', name: 'pur_land'},
                     {data: 'total_pur_land', name: 'total_pur_land'},
-                    {data: 'mzoth_no', name: 'mzoth_no'},
+                    {data: 'mland_size', name: 'mland_size'},
                     {data: 'username', name: 'username'},
                     // {data: 'action', name: 'action', orderable: false, searchable: false},                    
                 ]

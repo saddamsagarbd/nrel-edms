@@ -44,7 +44,7 @@ class EntryFileExport implements FromCollection, WithTitle, WithHeadings, WithMa
         if (isset($criteria['from_date'], $criteria['to_date'])) {
             $fromDate = $criteria['from_date'] . ' 00:00:00';
             $toDate = $criteria['to_date'] . ' 23:59:59';
-            $query->whereBetween('est_entry_files.created_at', [$fromDate, $toDate]);
+            $query->whereBetween('est_entry_file_deeds.deed_date', [$fromDate, $toDate]);
         }
 
         if (!empty($criteria['mouza']) && $criteria['mouza'] !== 'all') {
@@ -76,43 +76,127 @@ class EntryFileExport implements FromCollection, WithTitle, WithHeadings, WithMa
     {
         $user = Auth::user();
         $getTeamMems = teamMembers();
+        $criteria = $this->criteria ?? [];
+        $dagId = $criteria['dag_info'] ?? null;
 
-        // $query = EstEntryFile::query()
-        //     ->with([
-        //         'entryDagData' => function($q) {
-        //             // Remove the join here since it's already defined in the relationship
-        //             $q->select(
-        //                 'est_entry_file_dags.id',
-        //                 'est_entry_file_dags.entfile_id',
-        //                 'est_entry_file_dags.dag_id',
-        //                 'est_entry_file_dags.purchase_land'
-        //             );
-        //         },
-        //         'mouza:id,name',
-        //         'entryDeed:id,entfile_id,deed_no',
-        //         'landownersData:id,name',
-        //         'buyerName:data_keys,data_values',
-        //         'userInfo:id,name'
-        //     ])
-        //     ->leftJoin('users', 'users.id', '=', 'est_entry_files.user_id')
-        //     ->select([
-        //         'est_entry_files.id',
-        //         'est_entry_files.file_no',
-        //         'est_entry_files.mouza_id',
-        //         'est_entry_files.khatype_id',
-        //         'est_entry_files.t_pur_rs',
-        //         'est_entry_files.m_jote',
-        //         'est_entry_files.created_at',
-        //         'est_entry_files.landowners',
-        //         'est_entry_files.buyer_id',
-        //         'users.name as username'
-        //     ]);
+        $query = EstEntryFile::with([
+            'entryDagData', 'agent', 'mouza', 'buyerName', 'entryDeed', 'entryMutation'
+        ])
+            ->leftJoin('users', 'users.id', '=', 'est_entry_files.user_id')
+            ->leftJoin('estate_projects', 'estate_projects.id', '=', 'est_entry_files.project_id')
+            ->leftJoin('est_entry_file_deeds', 'est_entry_file_deeds.entfile_id', '=', 'est_entry_files.id')
+            ->select(
+                'est_entry_files.*',
+                'est_entry_file_deeds.deed_date',
+                'estate_projects.name as project_name',
+                'users.name as username'
+            )
+            ->distinct();
+
+        if ($user->type !== 'admin') {
+            if (!empty($getTeamMems) && count($getTeamMems) > 1) {
+                $query->whereIn('est_entry_files.user_id', $getTeamMems);
+            } else {
+                $userProjects = userProjects($user->id);
+                if (is_array($userProjects) && !empty($userProjects)) {
+                    $query->whereIn('est_entry_files.project_id', $userProjects);
+                }
+            }
+        }
+
+        $this->applyCriteria($criteria, $query);
+
+        return $this->collection = $query->orderBy('est_entry_file_deeds.deed_date', 'DESC')->latest()->get()->filter(function ($item) use ($dagId) {
+            return !$dagId || $item->entryDagData->contains(function ($dag) use ($item, $dagId) {
+                return $item->khatype_id == 3
+                    ? $dag->dag_id == $dagId
+                    : $dag->rsdag_id == $dagId;
+            });
+        })->map(function ($item) use ($dagId) {
+            $owner = '';
+            if ($item->landowners) {
+                $owner = EstateVendor::whereIn('id', $item->landowners)->pluck('name')->implode(', ');
+            }
+
+            $entryDagData = $item->entryDagData
+                ->filter(function ($dag) use ($item, $dagId) {
+                    return !$dagId || (
+                        $item->khatype_id == 3
+                            ? $dag->dag_id == $dagId
+                            : $dag->rsdag_id == $dagId
+                    );
+                })
+                ->map(function ($dag) use ($item) {
+                    $dagInfo = $this->getDagData($dag->dag_id);
+                    $saDag = $dagInfo ? $this->getDagData($dagInfo->sadag_id) : null;
+                    $rsDag = $dagInfo ? $this->getDagData($dagInfo->rsdag_id) : null;
+
+                    $rsKhatian = $rsDag ? $rsDag->khatian_no : '';
+                    $rsDagNo = $rsDag ? $rsDag->dag_no : '';
+
+                    if ($item->khatype_id == 3) {
+                        $mainDag = $this->getDagData($dag->dag_id);
+                        $rsKhatian = $mainDag ? $mainDag->khatian_no : '';
+                        $rsDagNo = $mainDag ? $mainDag->dag_no : '';
+                    }
+
+                    $bsKhatian = ($item->khatype_id == 4)
+                        ? optional($this->getDagData($dag->dag_id))->khatian_no ?? ''
+                        : '...';
+
+                    $bsDagNo = ($item->khatype_id == 4)
+                        ? optional($this->getDagData($dag->dag_id))->dag_no ?? ''
+                        : '...';
+
+                    return [
+                        'sa_khatian' => $saDag ? $saDag->khatian_no : '',
+                        'sa_dag' => $saDag ? $saDag->dag_no : '',
+                        'rs_khatian' => $rsKhatian,
+                        'rs_dag' => $rsDagNo,
+                        'bs_khatian' => $bsKhatian,
+                        'bs_dag' => $bsDagNo,
+                        'dag_land' => $dagInfo ? $dagInfo->dag_land : '',
+                        'pur_land' => $dag->purchase_land ?? 0,
+                    ];
+                });
+
+            return [
+                'file_no' => $item->id ?? '',
+                'deed_date' => $item->deed_date ?? '',
+                'media_name' => $item->agent->name ?? '',
+                'mouza_name' => $item->mouza->name ?? '',
+                'buyer_name' => $item->buyerName->data_values ?? '',
+                'landowner' => $owner,
+                'project' => $item->project_name ?? '',
+                'deed_no' => $item->entryDeed->pluck('deed_no')->implode(', ') ?? '',
+                'sa_khatian' => $entryDagData->pluck('sa_khatian')->filter()->implode(', '),
+                'sa_dag' => $entryDagData->pluck('sa_dag')->filter()->implode(', '),
+                'rs_khatian' => $entryDagData->pluck('rs_khatian')->filter()->implode(', '),
+                'rs_dag' => $entryDagData->pluck('rs_dag')->filter()->implode(', '),
+                'bs_khatian' => $entryDagData->pluck('bs_khatian')->filter()->implode(', '),
+                'bs_dag' => $entryDagData->pluck('bs_dag')->filter()->implode(', '),
+                'dag_land' => $entryDagData->pluck('dag_land')->filter()->implode(', '),
+                'pur_land' => $entryDagData->pluck('pur_land')->filter()->implode(', '),
+                'total_pur_land' => $entryDagData->pluck('pur_land')->sum(),
+                'mland_size' => $item->entryMutation->pluck('mland_size')->implode(', '),
+                'created_by' => $item->username ?? '',
+                'entryDagData' => $entryDagData,
+            ];
+        });
+    }
+
+    public function collection_old()
+    {
+        $user = Auth::user();
+        $getTeamMems = teamMembers();
 
         $query = EstEntryFile::with(['entryDagData'])
                 ->leftJoin('users', 'users.id', '=', 'est_entry_files.user_id')
                 ->leftJoin('estate_projects', 'estate_projects.id', '=', 'est_entry_files.project_id')
+                ->leftJoin('est_entry_file_deeds', 'est_entry_file_deeds.entfile_id', '=', 'est_entry_files.id')
                 ->select(
                     'est_entry_files.*', 
+                    'est_entry_file_deeds.deed_date', 
                     'estate_projects.name as project_name', 
                     'estate_projects.project_type as project_type', 
                     'estate_projects.land_type as land_type', 
@@ -132,8 +216,7 @@ class EntryFileExport implements FromCollection, WithTitle, WithHeadings, WithMa
 
         $this->applyCriteria($this->criteria, $query);
 
-        return $this->collection = $query->latest()->get()->map(function ($item) {
-            // $landowners = $item->landownersData->pluck('name')->implode(', ') ?: '';
+        return $this->collection = $query->orderBy('est_entry_file_deeds.deed_date', 'DESC')->latest()->get()->map(function ($item) {
 
             $owner='';
             if($item->landowners):
@@ -175,7 +258,7 @@ class EntryFileExport implements FromCollection, WithTitle, WithHeadings, WithMa
             });
 
             $entryDeed = $item->entryDeed->pluck('deed_no')->implode(', ') ?: '';
-            $entryMutation = $item->entryMutation->pluck('zoth_no')->implode(', ') ?: '';
+            $entryMutation = $item->entryMutation->pluck('mland_size')->implode(', ') ?: '';
 
             return [
                 'sl' => $item->id,
@@ -195,7 +278,7 @@ class EntryFileExport implements FromCollection, WithTitle, WithHeadings, WithMa
                 'purchase_land' => $entryDagData->pluck('pur_land')->filter()->implode(', ') ?: '',
                 'total_purchase_land' => $entryDagData->sum('pur_land'),
                 'total_purchase_rs' => $item->t_pur_rs ?? '',
-                'm_jote' => $item->m_jote ?? '',
+                'mland_size' => $entryMutation ?? '',
                 'mjoth_no' => $entryMutation,
                 'created_at' => date('d-m-Y', strtotime($item->created_at)),
                 'created_by' => $item->username ?? '',
@@ -234,26 +317,25 @@ class EntryFileExport implements FromCollection, WithTitle, WithHeadings, WithMa
                 $sheet = $event->sheet->getDelegate();
 
                 $headings = [
-                    'A' => 'SL',
-                    'B' => 'File No',
-                    'C' => 'Project Name',
-                    'D' => 'Deed No',
-                    'E' => 'Mouza',
-                    'F' => 'Vendee',
+                    'A' => '#ID',
+                    'B' => 'Deed Date',
+                    'C' => 'File.No',
+                    'D' => 'Prj. Name',
+                    'E' => 'Deed.NO',
+                    'F' => 'Mouza',
                     'G' => 'Vendor',
-                    'H' => 'SA Khatian',
-                    'I' => 'RS Khatian',
-                    'J' => 'BS Khatian',
-                    'K' => 'SA Dag',
-                    'L' => 'RS Dag',
-                    'M' => 'BS Dag',
-                    'N' => 'Dag Land',
-                    'O' => 'Purchase Land',
-                    'P' => 'Total Purchase Land',
-                    'Q' => 'Total Purchase RS',
-                    'R' => 'M Jote',
-                    'S' => 'Mjoth No',
-                    'T' => 'Created By'
+                    'H' => 'Vandee',
+                    'I' => 'SA.kh',
+                    'J' => 'RS.kh',
+                    'K' => 'BS.kh',
+                    'L' => 'SA.dg',
+                    'M' => 'RS.dg',
+                    'N' => 'BS.dg',
+                    'O' => 'DAG.LAND',
+                    'P' => 'PUR.LAND',
+                    'Q' => 'T.PUR.LAND',
+                    'R' => 'M.LAND',
+                    'S' => 'Created.By',
                 ];
 
                 $sheet->setCellValue('A1', '{{COMPANY_LOGO}}');
@@ -277,7 +359,7 @@ class EntryFileExport implements FromCollection, WithTitle, WithHeadings, WithMa
                 $logoRowHeight = $imageHeight * 0.75;
                 $sheet->getRowDimension(1)->setRowHeight($logoRowHeight);
 
-                $sheet->getStyle('A1:T1')->applyFromArray([
+                $sheet->getStyle('A1:S1')->applyFromArray([
                     'font' => [
                         'bold' => true,
                         'size' => 14,
@@ -292,9 +374,9 @@ class EntryFileExport implements FromCollection, WithTitle, WithHeadings, WithMa
                 ]);
 
                 $sheet->setCellValue('A1', $this->companyName);
-                $sheet->mergeCells('A1:T1');
+                $sheet->mergeCells('A1:S1');
 
-                $sheet->getStyle('A1:T1')->getAlignment()->setVertical(Alignment::VERTICAL_CENTER);
+                $sheet->getStyle('A1:S1')->getAlignment()->setVertical(Alignment::VERTICAL_CENTER);
 
                 $title = 'EDMS File Registration Report' . 
                     (
@@ -304,7 +386,7 @@ class EntryFileExport implements FromCollection, WithTitle, WithHeadings, WithMa
                         : '')
                     );
                 $sheet->setCellValue('A2', $title);
-                $sheet->getStyle('A2:T2')->applyFromArray([
+                $sheet->getStyle('A2:S2')->applyFromArray([
                     'font' => [
                         'bold' => true,
                         'size' => 14,
@@ -318,13 +400,13 @@ class EntryFileExport implements FromCollection, WithTitle, WithHeadings, WithMa
                     ],
                 ]);
 
-                $sheet->mergeCells('A2:T2');
+                $sheet->mergeCells('A2:S2');
 
                 $sheet->setCellValue('A3', 'Designed & Developed by IC&T Department | © 2024 NAVANA All Rights Reserved');
 
-                $sheet->mergeCells('A3:T3');
+                $sheet->mergeCells('A3:S3');
 
-                $sheet->getStyle('A3:T3')->applyFromArray([
+                $sheet->getStyle('A3:S3')->applyFromArray([
                     'font' => [
                         'bold' => true,
                         'size' => 8,
@@ -345,7 +427,7 @@ class EntryFileExport implements FromCollection, WithTitle, WithHeadings, WithMa
                     $sheet->setCellValue($col . '4', $heading);
                 }
 
-                $sheet->getStyle('A4:T4')->applyFromArray([
+                $sheet->getStyle('A4:S4')->applyFromArray([
                     'font' => [
                         'bold' => true,
                         'size' => 12,
@@ -364,7 +446,7 @@ class EntryFileExport implements FromCollection, WithTitle, WithHeadings, WithMa
                     ]
                 ]);
 
-                foreach (range('A', 'T') as $col) {
+                foreach (range('A', 'S') as $col) {
                     $sheet->getColumnDimension($col)->setWidth(12);
                     $sheet->getStyle($col . '1:' . $col . $sheet->getHighestRow())->getAlignment()->setWrapText(true);
                 }
@@ -377,32 +459,35 @@ class EntryFileExport implements FromCollection, WithTitle, WithHeadings, WithMa
                 
                 $startingRow = 4;
 
+                $datas = $this->collection;
+
+                $endingRow = $startingRow + count($datas);
+
                 $sl = $idx = 1;
 
-                foreach($this->collection as $key => $data){
+                foreach($datas as $key => $data){
 
                     $row = $startingRow + $idx;
 
-                    $sheet->setCellValue('A'. $row, $data['sl'] ?? '');
-                    $sheet->setCellValue('B'. $row, $data['file_no'] ?? '');
-                    $sheet->setCellValue('C'. $row, $data['project_name'] ?? '');
-                    $sheet->setCellValue('D'. $row, $data['deed_no'] ?? '');
-                    $sheet->setCellValue('E'. $row, $data['mouza'] ?? '');
-                    $sheet->setCellValue('F'. $row, $data['vendee'] ?? '');
-                    $sheet->setCellValue('G'. $row, $data['vendor'] ?? '');
-                    $sheet->setCellValue('H'. $row, $data['sa_khatian'] ?? '');
-                    $sheet->setCellValue('I'. $row, $data['rs_khatian'] ?? '');
-                    $sheet->setCellValue('J'. $row, $data['bs_khatian'] ?? '');
-                    $sheet->setCellValue('K'. $row, $data['sa_dag'] ?? '');
-                    $sheet->setCellValue('L'. $row, $data['rs_dag'] ?? '');
-                    $sheet->setCellValue('M'. $row, $data['bs_dag'] ?? '');
-                    $sheet->setCellValue('N'. $row, $data['dag_land'] ?? '');
-                    $sheet->setCellValue('O'. $row, $data['purchase_land'] ?? '');
-                    $sheet->setCellValue('P'. $row, $data['total_purchase_land'] ?? '');
-                    $sheet->setCellValue('Q'. $row, $data['total_purchase_rs'] ?? '');
-                    $sheet->setCellValue('R'. $row, $data['m_jote'] ?? '');
-                    $sheet->setCellValue('S'. $row, $data['mjoth_no'] ?? '');
-                    $sheet->setCellValue('T'. $row, $data['created_by'] ?? '');
+                    $sheet->setCellValue('A'. $row, $sl ?? '');
+                    $sheet->setCellValue('B'. $row, $data['deed_date'] ?? '');
+                    $sheet->setCellValue('C'. $row, $data['file_no'] ?? '');
+                    $sheet->setCellValue('D'. $row, $data['project'] ?? '');
+                    $sheet->setCellValue('E'. $row, $data['deed_no'] ?? '');
+                    $sheet->setCellValue('F'. $row, $data['mouza_name'] ?? '');
+                    $sheet->setCellValue('G'. $row, $data['buyer_name'] ?? '');
+                    $sheet->setCellValue('H'. $row, $data['landowner'] ?? '');
+                    $sheet->setCellValue('I'. $row, $data['sa_khatian'] ?? '');
+                    $sheet->setCellValue('J'. $row, $data['rs_khatian'] ?? '');
+                    $sheet->setCellValue('K'. $row, $data['bs_khatian'] ?? '');
+                    $sheet->setCellValue('L'. $row, $data['sa_dag'] ?? '');
+                    $sheet->setCellValue('M'. $row, $data['rs_dag'] ?? '');
+                    $sheet->setCellValue('N'. $row, $data['bs_dag'] ?? '');
+                    $sheet->setCellValue('O'. $row, $data['dag_land'] ?? '');
+                    $sheet->setCellValue('P'. $row, $data['pur_land'] ?? '');
+                    $sheet->setCellValue('Q'. $row, $data['total_pur_land'] ?? '');
+                    $sheet->setCellValue('R'. $row, $data['mland_size'] ?? '');
+                    $sheet->setCellValue('S'. $row, $data['created_by'] ?? '');
 
                     $sl++;
                     $idx++;
@@ -422,6 +507,53 @@ class EntryFileExport implements FromCollection, WithTitle, WithHeadings, WithMa
                 ];
 
                 $sheet->getStyle('A4:T' . $sheet->getHighestRow())->applyFromArray($style);
+
+                // Add total sum formula to the next row after the last data row
+                $totalRow = $endingRow + 1; // Row where the total will be displayed
+                $sheet->setCellValue('A' . $totalRow, 'Total'); // Optional label in column A
+                $sheet->mergeCells('A'. $totalRow .':N'.$totalRow);
+                $sheet->getStyle('A'. $totalRow .':N'.$totalRow)->applyFromArray([
+                    'font' => [
+                        'bold' => true,
+                        'size' => 16,
+                        'name' => 'Arial'
+                    ],
+                    'alignment' => [
+                        'horizontal' => 'right',
+                        'vertical' => 'center',
+                        'wrapText' => true,
+                        'indent' => 2,
+                    ],
+                ]);
+
+                $totalDagLand = $datas->map(fn($row) => [
+                                    'dag_no' => $row['sa_dag'] ?? $row['rs_dag'] ?? $row['bs_dag'] ?? null,
+                                    'land' => floatval($row['dag_land'] ?? 0),
+                                ])
+                                ->unique('dag_no')
+                                ->sum('land');
+
+                $sheet->setCellValue('O' . $totalRow, floatval($totalDagLand));
+                
+                $sheet->setCellValue('P' . $totalRow, '=SUM(P' . $startingRow . ':P' . $endingRow . ')');
+                $sheet->setCellValue('Q' . $totalRow, '=SUM(Q' . $startingRow . ':Q' . $endingRow . ')');
+                $sheet->setCellValue('R' . $totalRow, '=SUM(R' . $startingRow . ':R' . $endingRow . ')');
+
+                $sheet->getStyle('O'. $totalRow .':R'.$totalRow)->applyFromArray([
+                    'font' => [
+                        'bold' => true,
+                        'size' => 16,
+                        'name' => 'Arial'
+                    ],
+                    'alignment' => [
+                        'horizontal' => 'center',
+                        'vertical' => 'center',
+                        'wrapText' => true,
+                        'indent' => 2,
+                    ],
+                ]);
+
+                $sheet->freezePane('A'.($startingRow + 1));
 
                 $sheet->getPageSetup()->setOrientation(\PhpOffice\PhpSpreadsheet\Worksheet\PageSetup::ORIENTATION_LANDSCAPE);
                 $sheet->getPageSetup()->setPaperSize(\PhpOffice\PhpSpreadsheet\Worksheet\PageSetup::PAPERSIZE_A4);

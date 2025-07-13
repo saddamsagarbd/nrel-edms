@@ -685,12 +685,11 @@ class EstateEntryFileController extends Controller
     }
 
     protected function applyCriteria($criteria, $query)
-    {        
-        
+    {
         if (isset($criteria['from_date'], $criteria['to_date'])) {
             $fromDate = $criteria['from_date'] . ' 00:00:00';
             $toDate = $criteria['to_date'] . ' 23:59:59';
-            $query->whereBetween('est_entry_files.created_at', [$fromDate, $toDate]);
+            $query->whereBetween('est_entry_file_deeds.deed_date', [$fromDate, $toDate]);
         }
         
         if (!empty($criteria['project']) && $criteria['project'] !== 'all') {
@@ -710,7 +709,6 @@ class EstateEntryFileController extends Controller
                 $q->where('est_entry_file_dags.dag_id', $criteria['dag']);
             });
         }
-
     }
 
     /**
@@ -861,12 +859,14 @@ class EstateEntryFileController extends Controller
         // }
 
         if ($request->ajax()) {
-            DB::enableQueryLog();
+            // DB::enableQueryLog();
             $query = EstEntryFile::with(['entryDagData'])
                 ->leftJoin('users', 'users.id', '=', 'est_entry_files.user_id')
                 ->leftJoin('estate_projects', 'estate_projects.id', '=', 'est_entry_files.project_id')
+                ->leftJoin('est_entry_file_deeds', 'est_entry_file_deeds.entfile_id', '=', 'est_entry_files.id')
                 ->select(
                     'est_entry_files.*', 
+                    'est_entry_file_deeds.deed_date', 
                     'estate_projects.name as project_name', 
                     'estate_projects.project_type as project_type', 
                     'estate_projects.land_type as land_type', 
@@ -880,75 +880,204 @@ class EstateEntryFileController extends Controller
             // $query->get();
 
             // dd(DB::getQueryLog());
+            $entryFiles = $query->latest();
 
-            return DataTables::of($query->latest())
-                ->addIndexColumn()
-                ->addColumn('project', fn ($data) => $data->project_name ?? '')
-                ->addColumn('media_name', fn ($data) => $data->agent->name ?? '')
-                ->addColumn('mouza_name', fn ($data) => $data->mouza->name ?? '')
-                ->addColumn('buyer_name', fn ($data) => $data->buyerName->data_values ?? '')
-                ->addColumn('landowner', function ($data) {
-                    if (!$data->landowners) return '';
-                    return EstateVendor::whereIn('id', $data->landowners)
-                        ->get()
-                        ->map(fn($lw) => "<p>{$lw->name}.</p>")
-                        ->implode('');
-                })
-                ->addColumn('sa_khatian', function ($data) {
-                    return $data->entryDagData->map(fn ($dag) =>
-                        optional($this->getDagData($dag->sadag_id))->khatian_no
-                    )->implode(',<br>');
-                })
-                ->addColumn('sa_dag', function ($data) {
-                    return $data->entryDagData->map(fn ($dag) =>
-                        optional($this->getDagData($dag->sadag_id))->dag_no
-                    )->implode(', <br>');
-                })
-                ->addColumn('rs_khatian', function ($data) {
-                    return $data->entryDagData->map(function ($dag) use ($data) {
-                        $rs_dag = $data->khatype_id == 3
-                            ? $this->getDagData($dag->dag_id)
-                            : $this->getDagData($dag->rsdag_id);
-                        return optional($rs_dag)->khatian_no;
-                    })->implode(',<br>');
-                })
-                ->addColumn('rs_dag', function ($data) {
-                    return $data->entryDagData->map(function ($dag) use ($data) {
-                        $rs_dag = $data->khatype_id == 3
-                            ? $this->getDagData($dag->dag_id)
-                            : $this->getDagData($dag->rsdag_id);
-                        return optional($rs_dag)->dag_no;
-                    })->implode(', <br>');
-                })
-                ->addColumn('bs_khatian', function ($data) {
-                    if ($data->khatype_id != 4) return '...';
-                    return $data->entryDagData->map(fn ($dag) =>
-                        optional($this->getDagData($dag->dag_id))->khatian_no
-                    )->implode(',<br>');
-                })
-                ->addColumn('bs_dag', function ($data) {
-                    if ($data->khatype_id != 4) return '...';
-                    return $data->entryDagData->map(function ($dag) {
-                        return isset($dag->dag_no) && $dag->dag_no !== null && $dag->dag_no != ""
-                                ? (string) $dag->dag_no
-                                : '...';
-                    })->implode(', <br>');
-                })
+            // return DataTables::of($entryFiles)
+            //     ->addIndexColumn()
+            //     ->addColumn('project', fn ($data) => $data->project_name ?? '')
+            //     ->addColumn('media_name', fn ($data) => $data->agent->name ?? '')
+            //     ->addColumn('mouza_name', fn ($data) => $data->mouza->name ?? '')
+            //     ->addColumn('buyer_name', fn ($data) => $data->buyerName->data_values ?? '')
+            //     ->addColumn('landowner', function ($data) {
+            //         if (!$data->landowners) return '';
+            //         return EstateVendor::whereIn('id', $data->landowners)
+            //             ->get()
+            //             ->map(fn($lw) => "<p>{$lw->name}.</p>")
+            //             ->implode('');
+            //     })
+            //     ->addColumn('sa_khatian', function ($data) {
+            //         return $data->entryDagData->map(fn ($dag) =>
+            //             optional($this->getDagData($dag->sadag_id))->khatian_no
+            //         )->implode(',<br>');
+            //     })
+            //     ->addColumn('sa_dag', function ($data) {
+            //         return $data->entryDagData->map(fn ($dag) =>
+            //             optional($this->getDagData($dag->sadag_id))->dag_no
+            //         )->implode(', <br>');
+            //     })
+            //     ->addColumn('rs_khatian', function ($data) {
+            //         return $data->entryDagData->map(function ($dag) use ($data) {
+            //             $rs_dag = $data->khatype_id == 3
+            //                 ? $this->getDagData($dag->dag_no)
+            //                 : $this->getDagData($dag->rsdag_id);
+            //             return optional($rs_dag)->khatian_no;
+            //         })->implode(',<br>');
+            //     })
+            //     ->addColumn('rs_dag', function ($data) use ($request) {
 
-                ->addColumn('dag_land', function ($data) {
-                    return $data->entryDagData->map(fn ($dag) =>
-                        optional($this->getDagData($dag->dag_id))->dag_land
-                    )->implode(',<br>');
-                })
-                ->addColumn('pur_land', fn ($data) => $data->entryDagData->pluck('purchase_land')->implode(', <br>'))
-                ->addColumn('total_pur_land', fn ($data) => $data->entryDagData->sum('purchase_land'))
-                ->addColumn('deed_no', fn ($data) => $data->entryDeed->pluck('deed_no')->implode(', '))
-                ->addColumn('mzoth_no', fn ($data) => $data->entryMutation->pluck('zoth_no')->implode(', '))
-                // ->addColumn('action', function ($data) {
-                //     return '<a class="btn btn-light btn-sm btn-sm-custom ms-1" href="' . route('admin.entryFile.show', $data->id) . '">View</a>';
-                // })
-                ->rawColumns(['sa_khatian','rs_khatian','sa_dag','rs_dag', 'bs_khatian', 'bs_dag', 'dag_land','pur_land','buyer_name', 'mouza_name','landowner'])
-                ->make(true);
+            //         return $data->entryDagData->map(function ($dag) use ($data) {
+            //             $rs_dag = $data->khatype_id == 3
+            //                 ? $this->getDagData($dag->dag_id)
+            //                 : $this->getDagData($dag->rsdag_id);
+            //             return optional($rs_dag)->dag_no;
+            //         })->implode(', <br>');
+            //     })
+            //     ->addColumn('bs_khatian', function ($data) {
+            //         if ($data->khatype_id != 4) return '...';
+            //         return $data->entryDagData->map(fn ($dag) =>
+            //             optional($this->getDagData($dag->dag_no))->khatian_no
+            //         )->implode(',<br>');
+            //     })
+            //     ->addColumn('bs_dag', function ($data) {
+            //         if ($data->khatype_id != 4) return '...';
+            //         return $data->entryDagData->map(function ($dag) {
+            //             return isset($dag->dag_no) && $dag->dag_no !== null && $dag->dag_no != ""
+            //                     ? (string) $dag->dag_no
+            //                     : '...';
+            //         })->implode(', <br>');
+            //     })
+
+            //     ->addColumn('dag_land', function ($data) {
+            //         return $data->entryDagData->map(fn ($dag) =>
+            //             optional($this->getDagData($dag->dag_no))->dag_land
+            //         )->implode(',<br>');
+            //     })
+            //     ->addColumn('pur_land', fn ($data) => $data->entryDagData->pluck('purchase_land')->implode(', <br>'))
+            //     ->addColumn('total_pur_land', fn ($data) => $data->entryDagData->sum('purchase_land'))
+            //     ->addColumn('deed_no', fn ($data) => $data->entryDeed->pluck('deed_no')->implode(', '))
+            //     ->addColumn('mland_size', fn ($data) => $data->entryMutation->pluck('mland_size')->implode(', '))
+            //     // ->addColumn('action', function ($data) {
+            //     //     return '<a class="btn btn-light btn-sm btn-sm-custom ms-1" href="' . route('admin.entryFile.show', $data->id) . '">View</a>';
+            //     // })
+            //     ->rawColumns(['sa_khatian','rs_khatian','sa_dag','rs_dag', 'bs_khatian', 'bs_dag', 'dag_land','pur_land','buyer_name', 'mouza_name','landowner'])
+            //     ->make(true);
+
+            return DataTables::of($entryFiles)
+                    ->addIndexColumn()
+                    ->addColumn('deed_date', fn ($data) => $data->deed_date ?? '')
+                    ->addColumn('media_name', fn ($data) => $data->agent->name ?? '')
+                    ->addColumn('mouza_name', fn ($data) => $data->mouza->name ?? '')
+                    ->addColumn('buyer_name', fn ($data) => $data->buyerName->data_values ?? '')
+                    ->addColumn('landowner', function ($data) {
+                        if (!$data->landowners) return '';
+                        return EstateVendor::whereIn('id', $data->landowners)
+                            ->get()
+                            ->map(fn($lw) => "<p>{$lw->name}.</p>")
+                            ->implode('');
+                    })
+                    ->addColumn('project', fn ($data) => $data->project_name ?? '')
+                    ->addColumn('deed_no', fn ($data) => $data->entryDeed->pluck('deed_no')->implode(', '))
+
+                    // Filtered by dag criteria if present
+                    ->addColumn('sa_khatian', function ($data) use ($request) {
+                        $filterDagId = $request->criteria['dag'] ?? null;
+
+                        return $data->entryDagData
+                            ->filter(fn($dag) => !$filterDagId || $dag->dag_id == $filterDagId)
+                            ->map(fn($dag) => optional($this->getDagData($dag->sadag_id))->khatian_no)
+                            ->implode(',<br>');
+                    })
+
+                    ->addColumn('sa_dag', function ($data) use ($request) {
+                        $filterDagId = $request->criteria['dag'] ?? null;
+
+                        return $data->entryDagData
+                            ->filter(fn($dag) => !$filterDagId || $dag->dag_id == $filterDagId)
+                            ->map(fn($dag) => optional($this->getDagData($dag->sadag_id))->dag_no)
+                            ->implode(', <br>');
+                    })
+
+                    ->addColumn('rs_khatian', function ($data) use ($request) {
+                        $filterDagId = $request->criteria['dag'] ?? null;
+
+                        return $data->entryDagData
+                            ->filter(function ($dag) use ($data, $filterDagId) {
+                                return !$filterDagId || (
+                                    $data->khatype_id == 3
+                                        ? $dag->dag_id == $filterDagId
+                                        : $dag->rsdag_id == $filterDagId
+                                );
+                            })
+                            ->map(function ($dag) use ($data) {
+                                $rs_dag = $data->khatype_id == 3
+                                    ? $this->getDagData($dag->dag_id)
+                                    : $this->getDagData($dag->rsdag_id);
+                                return optional($rs_dag)->khatian_no;
+                            })
+                            ->implode(',<br>');
+                    })
+
+                    ->addColumn('rs_dag', function ($data) use ($request) {
+                        $filterDagId = $request->criteria['dag'] ?? null;
+
+                        return $data->entryDagData
+                            ->filter(function ($dag) use ($data, $filterDagId) {
+                                return !$filterDagId || (
+                                    $data->khatype_id == 3
+                                        ? $dag->dag_id == $filterDagId
+                                        : $dag->rsdag_id == $filterDagId
+                                );
+                            })
+                            ->map(function ($dag) use ($data) {
+                                $rs_dag = $data->khatype_id == 3
+                                    ? $this->getDagData($dag->dag_id)
+                                    : $this->getDagData($dag->rsdag_id);
+                                return optional($rs_dag)->dag_no;
+                            })
+                            ->implode(', <br>');
+                    })
+
+                    ->addColumn('bs_khatian', function ($data) use ($request) {
+                        if ($data->khatype_id != 4) return '...';
+                        $filterDagId = $request->criteria['dag'] ?? null;
+
+                        return $data->entryDagData
+                            ->filter(fn($dag) => !$filterDagId || $dag->dag_id == $filterDagId)
+                            ->map(fn($dag) => optional($this->getDagData($dag->dag_id))->khatian_no)
+                            ->implode(',<br>');
+                    })
+
+                    ->addColumn('bs_dag', function ($data) use ($request) {
+                        if ($data->khatype_id != 4) return '...';
+                        $filterDagId = $request->criteria['dag'] ?? null;
+
+                        return $data->entryDagData
+                            ->filter(fn($dag) => !$filterDagId || $dag->dag_id == $filterDagId)
+                            ->map(fn($dag) => optional($this->getDagData($dag->dag_id))->dag_no)
+                            ->implode(', <br>');
+                    })
+
+                    ->addColumn('dag_land', function ($data) use ($request) {
+                        $filterDagId = $request->criteria['dag'] ?? null;
+
+                        return $data->entryDagData
+                            ->filter(fn($dag) => !$filterDagId || $dag->dag_id == $filterDagId)
+                            ->map(fn($dag) => optional($this->getDagData($dag->dag_id))->dag_land)
+                            ->implode(', <br>');
+                    })
+
+                    // ->addColumn('pur_land', fn ($data) => $data->entryDagData->pluck('purchase_land')->implode(', <br>'))
+                    ->addColumn('pur_land', function ($data) use ($request) {
+                        $filterDagId = $request->criteria['dag'] ?? null;
+
+                        return $data->entryDagData
+                            ->filter(function ($dag) use ($data, $filterDagId) {
+                                if (!$filterDagId) return true;
+                                return $data->khatype_id == 3
+                                    ? $dag->dag_id == $filterDagId
+                                    : $dag->rsdag_id == $filterDagId;
+                            })
+                            ->map(fn($dag) => $dag->purchase_land)
+                            ->implode(', <br>');
+                    })
+                    ->addColumn('total_pur_land', fn ($data) => $data->entryDagData->sum('purchase_land'))
+                    ->addColumn('mland_size', fn ($data) => $data->entryMutation->pluck('mland_size')->implode(', '))
+                    ->rawColumns([
+                        'sa_khatian', 'rs_khatian', 'sa_dag', 'rs_dag',
+                        'bs_khatian', 'bs_dag', 'dag_land', 'pur_land',
+                        'buyer_name', 'mouza_name', 'landowner'
+                    ])
+                    ->make(true);
         }
 
         return view('backend.admin.estate.entryfile.report');
