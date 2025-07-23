@@ -1070,7 +1070,16 @@ class EstateEntryFileController extends Controller
                             ->map(fn($dag) => $dag->purchase_land)
                             ->implode(', <br>');
                     })
-                    ->addColumn('total_pur_land', fn ($data) => $data->entryDagData->sum('purchase_land'))
+                    ->addColumn('total_pur_land', function ($data) use ($request){
+                        $filterDagId = $request->criteria['dag'] ?? null;
+                        return $data->entryDagData
+                            ->filter(function ($dag) use ($data, $filterDagId) {
+                                if (!$filterDagId) return true;
+                                return $data->khatype_id == 3
+                                    ? $dag->dag_id == $filterDagId
+                                    : $dag->rsdag_id == $filterDagId;
+                            })->sum('purchase_land');
+                    })
                     ->addColumn('mland_size', fn ($data) => $data->entryMutation->pluck('mland_size')->implode(', '))
                     ->rawColumns([
                         'sa_khatian', 'rs_khatian', 'sa_dag', 'rs_dag',
