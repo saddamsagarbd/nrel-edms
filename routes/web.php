@@ -126,6 +126,7 @@ Route::group(['as' => 'user.', 'prefix' => 'user', 'namespace' => 'User', 'middl
         Route::post('/entryfile/deed', [EstateEntryFileController::class, 'entryfileRegistry'])->name('deed.store');
         Route::get('/entryfile/deed/{id}/edit', [EstateEntryFileController::class, 'editDeed'])->name('deed.edit');
 
+        Route::post('entryfile/dag/registry', [AdminEstateEntryFileController::class, 'entryfileRegistry'])->name('dag.registry');
         Route::post('entryfile/mutation', [EstateEntryFileController::class, 'mutationEntryfile'])->name('mutation');
 
         Route::post('entryfile/status', [EstateEntryFileController::class, 'statusEntryfile'])->name('status');

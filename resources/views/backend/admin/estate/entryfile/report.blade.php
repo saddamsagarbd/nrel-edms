@@ -65,7 +65,7 @@
             <div class="card">
                 @include('backend.slices.entry-file-search-criteria')
                 <div class="card-body">
-                    <h6 class="card-title float-left">Entry File Report (<span class="text-danger">R.S</span>)</h6>
+                    <h6 class="card-title float-left">File Registration Report (<span class="text-danger">R.S</span>)</h6>
                     <div class="table-responsive">
                         <table id="dataTableEntryFile" class="table">
                             <thead>
@@ -242,7 +242,7 @@
                     {data: 'pur_land', name: 'pur_land'},
                     {data: 'total_pur_land', name: 'total_pur_land'},
                     {data: 'mland_size', name: 'mland_size'},
-                    {data: 'username', name: 'username'},
+                    {data: 'created_by', name: 'created_by'},
                     // {data: 'action', name: 'action', orderable: false, searchable: false},                    
                 ]
             });

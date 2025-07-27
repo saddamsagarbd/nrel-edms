@@ -658,7 +658,7 @@ $isReview = isReviewed($entryFile->id, 2);
     $('#entryFormDagSubmit').click(function(e) {
         e.preventDefault();
         $.ajax({
-            url: "{{route('user.entryFile.dag.store')}}",
+            url: "{{route('admin.entryFile.dag.store')}}",
             method: 'POST',
             data: $('#addEntryDagForm').serialize(),
             success: function(res) {
@@ -723,7 +723,7 @@ $isReview = isReviewed($entryFile->id, 2);
             e.preventDefault();
             $(this).html('Sending..');
             $.ajax({
-                url: "{{route('user.entryFile.dag.update')}}",
+                url: "{{route('admin.entryFile.dag.update')}}",
                 data: $('#updateDagForm').serialize(),
                 type: "POST",
                 dataType: 'json',
@@ -754,7 +754,7 @@ $isReview = isReviewed($entryFile->id, 2);
             e.preventDefault();
             $(this).html('Sending..');
             $.ajax({
-                url: "{{route('user.entryFile.dag.registry')}}",
+                url: "{{route('admin.entryFile.dag.registry')}}",
                 data: $('#registryEntryFileForm').serialize(),
                 type: "POST",
                 dataType: 'json',
@@ -784,7 +784,7 @@ $isReview = isReviewed($entryFile->id, 2);
             e.preventDefault();
             $(this).html('Sending..');
             $.ajax({
-                url: "{{route('user.entryFile.mutation')}}",
+                url: "{{route('admin.entryFile.mutation')}}",
                 data: $('#mutationEntryFileForm').serialize(),
                 type: "POST",
                 dataType: 'json',
@@ -810,7 +810,7 @@ $isReview = isReviewed($entryFile->id, 2);
         $('#reviewSubmit').click(function(e) {
             e.preventDefault();
             $.ajax({
-                url: "{{route('user.entryFile.status')}}",
+                url: "{{route('admin.entryFile.status')}}",
                 method: 'POST',
                 data: $('#reviewModalForm').serialize(),
                 success: function(result) {
