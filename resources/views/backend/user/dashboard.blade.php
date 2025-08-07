@@ -152,7 +152,7 @@
 @endsection
 @push('js')
 <script>
-    var _daylabels = {!! json_encode($daylabels) !!};
-    var _daydata = {!! json_encode($daydata) !!};
+    var _daylabels = {!! json_encode($daylabels ?? []) !!};
+    var _daydata = {!! json_encode($daydata ?? []) !!};
 </script>
 @endpush
