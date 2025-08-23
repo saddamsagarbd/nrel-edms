@@ -9,7 +9,7 @@ $(function() {
     flatpickr("#flatpickr-date", {
       wrap: true,
       dateFormat: "Y-m-d H:i",
-      minDate:"today"
+      // minDate:"today"
     });
   }
   
@@ -53,7 +53,7 @@ $(function() {
       noCalendar: false,
       dateFormat: "Y-m-d H:i",
       minuteIncrement:30,
-      minDate: "today",
+      // minDate: "today",
     });
   }
 
